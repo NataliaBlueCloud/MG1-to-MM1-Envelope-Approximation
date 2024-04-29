@@ -1,14 +1,13 @@
 ---
 title: "Queuing_envelope_mg1"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2024-04-24"
 ---
 # Approximating Queuing Delay from M/GI/1 to M/M/1 Envelope
 ```{r setup, include=FALSE}
 library(simmer)
-set.seed(4321)
 ```
 
 ## FUNCTIONS
@@ -175,8 +174,8 @@ envelope_rate = (1-rho)/E_X
 
 PDF of real and envelope
 ```{r}
-plot(density(mg1_packets*1e6), col = "blue", main = "", xlab = "Delay, μs", lwd = 2)
-lines(density(rexp(1e4, rate = envelope_rate)*1e6), col = "darkgreen", lwd = 2)
+plot(density(mg1_packets), col = "blue", main = "", xlab = "Delay, s", lwd = 2)
+lines(density(rexp(1e4, rate = envelope_rate)), col = "darkgreen", lwd = 2)
 legend("topright", legend = c("M/G/1", "M/M/1"), col = c("blue", "darkgreen"), lwd = 2)
 grid()
 ```
@@ -201,7 +200,7 @@ Plot the log CCDF
 ```{r}
 
 t_min = min(mg1_packets)
-t_max = 2*E_T_real
+t_max = 5*E_T_real
 # Compute the empirical CDF
 ecdf_values <- ecdf(mg1_packets)
 # Generate x values for the plot E(T)
@@ -228,7 +227,7 @@ grid()
 
 ```{r}
 # Data
-loads_real <- seq(0.01, 0.99, 0.01)
+loads_real <- c(0.1, 0.3, 0.5, 0.7, 0.8, 0.9)
 loads_envelope <- sapply(loads_real, function(load) envelope_load_calc(Capacity_Gbps, k_num, load, PS_size, PS_weights)) 
 
 # Fitting a quadratic polynomial regression model
@@ -241,27 +240,12 @@ load_real_pred <- seq(min(loads_real), max(loads_real), length.out = 100)
 load_envelope_pred <- predict(model, newdata = data.frame(loads_real = load_real_pred))
 
 # Plotting the observed data and the predicted values
-plot(loads_real, loads_envelope, type = 'l', col = 'deepskyblue4', xlab = expression(ρ[M/GI/1]), ylab = expression(ρ[envelope]), main = 'Quadratic Polynomial Regression', lwd = 2)
+plot(loads_real, loads_envelope, type = 'l', col = 'deepskyblue4', xlab = 'load_real', ylab = 'load_envelope', main = 'Quadratic Polynomial Regression', lwd = 2)
 lines(load_real_pred, load_envelope_pred, col = 'green', lwd = 2)
 grid()
 legend("bottomright",c("Observ.","Predicted"), 
        col=c("deepskyblue4","green"), lwd=3)
 
-```
-
-Extract the coefficients from the fitted quadratic polynomial regression model:
-
-
-```{r}
-# Extract the coefficients of the fitted model
-coef_model <- coef(model)
-
-# Construct the formula
-formula <- paste0("y(x) = ", coef_model[1], " + ", coef_model[2], "x", 
-                  " + ", coef_model[3], "x^2")
-
-# Print the formula
-print(formula)
 ```
 
 # Part 3: Checking the polinomial prediction
@@ -287,62 +271,5 @@ cat("E(T) exponential envelope M/M/1:", E_X/(1-load_envelope_predicted), "s \n")
 cat("E(T) Real M/GI/1:", mean(mg1_packets), "s \n")
     
 
-```
-
-```{r}
-print(paste0("Envelope load obtained from polynomial: ", formula,"=",coef_model[1] +coef_model[2]*loads_real + coef_model[3]*loads_real^2))
-```
-
-## Polynomial prediction for different packet size distributions 
-```{r echo=TRUE, message=FALSE}
-# Data
-#V1
-PS_size <- c(40, 576, 1500)  # Packet sizes in bytes
-PS_weights <- c(7, 4, 1) / 12  # Packet weights
-loads_real <- seq(0.01, 0.99, 0.01)
-
-loads_envelope_v1 <- sapply(loads_real, function(load) envelope_load_calc(Capacity_Gbps, k_num, load, PS_size, PS_weights)) 
-
-# Fitting a quadratic polynomial regression model
-model_v1 <- lm(loads_envelope_v1 ~ poly(loads_real, 2, raw = TRUE))
-
-# Generating sequence of loads_real values for prediction
-load_real_pred <- seq(min(loads_real), max(loads_real), length.out = 100)
-
-# Predicting loads_envelope values for the generated loads_real values
-load_envelope_pred_v1 <- predict(model_v1, newdata = data.frame(loads_real = load_real_pred))
-
-#V2 https://www.ams-ix.net/ams
-PS_size=c((64+127)/2,(128+255)/2,(256+511)/2, (512+1023)/2, (1024+1513)/2, 1514, (1515+9100)/2)
-PS_weights=c(33.2/100, 5.4/100, 3.3/100, 3.7/100, 34.6/100, 14.6/100, 5.2/100)
-loads_envelope_v2 <- sapply(loads_real, function(load) envelope_load_calc(Capacity_Gbps, k_num, load, PS_size, PS_weights)) 
-model_v2 <- lm(loads_envelope_v2 ~ poly(loads_real, 2, raw = TRUE))
-load_envelope_pred_v2 <- predict(model_v2, newdata = data.frame(loads_real = load_real_pred))
-
-#V3 https://www.seattleix.net/statistics/
-PS_size=c((64), (65+128)/2, (129+256)/2,(257+384)/2, (385+512)/2,(513+640)/2,(641+768)/2,(769+896)/2,
-          (897+1024)/2,
-          (1025+1152)/2,(1153+1280)/2,(1515+1408)/2,(1409+1536)/2, (1537+9999)/2)
-PS_weights = c(4.2, 22.73, 4.79,1.93,0.92, 1.04, 0.74, 0.49, 0.45, 0.82, 6.56,9.30, 45.95, 0.07)
-PS_weights=PS_weights/100
-loads_envelope_v3 <- sapply(loads_real, function(load) envelope_load_calc(Capacity_Gbps, k_num, load, PS_size, PS_weights)) 
-model_v3 <- lm(loads_envelope_v3 ~ poly(loads_real, 2, raw = TRUE))
-load_envelope_pred_v3 <- predict(model_v3, newdata = data.frame(loads_real = load_real_pred))
-
-```
-
-
-```{r echo=TRUE}
-# Plotting the observed data and the predicted values
-
-plot(load_real_pred, load_envelope_pred_v1, type = 'l', col = 'deepskyblue4', xlab = expression(ρ[M/GI/1]), ylab = expression(ρ[envelope]), main = 'Quadratic Polynomial Regression', lwd = 3)
-lines(loads_real, loads_envelope_v1, col = 'deepskyblue4', lwd = 2, lty= 5)
-lines(load_real_pred, load_envelope_pred_v2, col = 'green', lwd = 3)
-lines(loads_real, loads_envelope_v2, col = 'green', lwd = 2, lty= 5)
-lines(load_real_pred, load_envelope_pred_v3, col = 'red', lwd = 3)
-lines(loads_real, loads_envelope_v3, col = 'red', lwd = 2, lty= 5)
-grid()
-legend("bottomright",c("v1","v2", "v3"), 
-       col=c("deepskyblue4","green", "red"), lwd=3)
 ```
 
