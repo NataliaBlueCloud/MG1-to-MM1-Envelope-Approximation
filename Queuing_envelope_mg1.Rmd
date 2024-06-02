@@ -1,13 +1,15 @@
 ---
 title: "Queuing_envelope_mg1"
 output:
+  pdf_document:
+    latex_engine: xelatex
   html_document: default
-  pdf_document: default
 date: "2024-04-24"
 ---
 # Approximating Queuing Delay from M/GI/1 to M/M/1 Envelope
 ```{r setup, include=FALSE}
 library(simmer)
+library(ggplot2)
 set.seed(4321)
 ```
 
@@ -100,7 +102,7 @@ envelope_load_calc <- function(Capacity_Gbps, k_num, Load, PS_size, PS_weights)
 Capacity_Gbps = 10
 k_num = 1e4 #number of simulation packages
 Load <- 0.7  # Load
-#V1
+# #V1
 PS_size <- c(40, 576, 1500)  # Packet sizes in bytes
 PS_weights <- c(7, 4, 1) / 12  # Packet weights
 
@@ -118,6 +120,17 @@ PS_weights <- c(7, 4, 1) / 12  # Packet weights
 #           (897+1024)/2,
 #           (1025+1152)/2,(1153+1280)/2,(1515+1408)/2,(1409+1536)/2, (1537+9999)/2)
 # PS_weights = c(4.2, 22.73, 4.79,1.93,0.92, 1.04, 0.74, 0.49, 0.45, 0.82, 6.56,9.30, 45.95, 0.07)
+# PS_weights=PS_weights/100
+
+# #V4 https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
+# PS_size=c(64,
+#           (65+127)/2,
+#           (128+255)/2,
+#           (256+511)/2,
+#           (513+1023)/2,
+#           (1024+1517)/2,
+#           (1518+9999)/2)
+# PS_weights = c(2, 23, 5, 5, 5, 40, 20)
 # PS_weights=PS_weights/100
 ```
 # Part 1: simulation M/G/1 and envelope M/M/1 calculations
@@ -241,7 +254,7 @@ load_real_pred <- seq(min(loads_real), max(loads_real), length.out = 100)
 load_envelope_pred <- predict(model, newdata = data.frame(loads_real = load_real_pred))
 
 # Plotting the observed data and the predicted values
-plot(loads_real, loads_envelope, type = 'l', col = 'deepskyblue4', xlab = expression(ρ[M/GI/1]), ylab = expression(ρ[envelope]), main = 'Quadratic Polynomial Regression', lwd = 2)
+plot(loads_real, loads_envelope, type = 'l', col = 'deepskyblue4', xlab = expression(rho[M/GI/1]), ylab = expression(rho[envelope]), main = 'Quadratic Polynomial Regression', lwd = 2)
 lines(load_real_pred, load_envelope_pred, col = 'green', lwd = 2)
 grid()
 legend("bottomright",c("Observ.","Predicted"), 
@@ -292,7 +305,7 @@ cat("E(T) Real M/GI/1:", mean(mg1_packets), "s \n")
 ```{r}
 print(paste0("Envelope load obtained from polynomial: ", formula,"=",coef_model[1] +coef_model[2]*loads_real + coef_model[3]*loads_real^2))
 ```
-
+# Part 4:
 ## Polynomial prediction for different packet size distributions 
 ```{r echo=TRUE, message=FALSE}
 # Data
@@ -320,11 +333,23 @@ model_v2 <- lm(loads_envelope_v2 ~ poly(loads_real, 2, raw = TRUE))
 load_envelope_pred_v2 <- predict(model_v2, newdata = data.frame(loads_real = load_real_pred))
 
 #V3 https://www.seattleix.net/statistics/
-PS_size=c((64), (65+128)/2, (129+256)/2,(257+384)/2, (385+512)/2,(513+640)/2,(641+768)/2,(769+896)/2,
-          (897+1024)/2,
-          (1025+1152)/2,(1153+1280)/2,(1515+1408)/2,(1409+1536)/2, (1537+9999)/2)
-PS_weights = c(4.2, 22.73, 4.79,1.93,0.92, 1.04, 0.74, 0.49, 0.45, 0.82, 6.56,9.30, 45.95, 0.07)
+# PS_size=c((64), (65+128)/2, (129+256)/2,(257+384)/2, (385+512)/2,(513+640)/2,(641+768)/2,(769+896)/2,
+#           (897+1024)/2,
+#           (1025+1152)/2,(1153+1280)/2,(1515+1408)/2,(1409+1536)/2, (1537+9999)/2)
+# PS_weights = c(4.2, 22.73, 4.79,1.93,0.92, 1.04, 0.74, 0.49, 0.45, 0.82, 6.56,9.30, 45.95, 0.07)
+# PS_weights = PS_weights/100
+
+# #V4 San Francisco Metropolitan Internet Exchange (SFMIX) https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
+PS_size=c(64,
+          (65+127)/2,
+          (128+255)/2,
+          (256+511)/2,
+          (513+1023)/2,
+          (1024+1517)/2,
+          (1518+9999)/2)
+PS_weights = c(2, 23, 5, 5, 5, 40, 20)
 PS_weights=PS_weights/100
+
 loads_envelope_v3 <- sapply(loads_real, function(load) envelope_load_calc(Capacity_Gbps, k_num, load, PS_size, PS_weights)) 
 model_v3 <- lm(loads_envelope_v3 ~ poly(loads_real, 2, raw = TRUE))
 load_envelope_pred_v3 <- predict(model_v3, newdata = data.frame(loads_real = load_real_pred))
@@ -335,14 +360,200 @@ load_envelope_pred_v3 <- predict(model_v3, newdata = data.frame(loads_real = loa
 ```{r echo=TRUE}
 # Plotting the observed data and the predicted values
 
-plot(load_real_pred, load_envelope_pred_v1, type = 'l', col = 'deepskyblue4', xlab = expression(ρ[M/GI/1]), ylab = expression(ρ[envelope]), main = 'Quadratic Polynomial Regression', lwd = 3)
+plot(load_real_pred, load_envelope_pred_v1, type = 'l', col = 'deepskyblue4', xlab = expression(rho[M/GI/1]), ylab = expression(rho[envelope]),# main = 'Quadratic Polynomial Regression',
+     lwd = 3, ylim = c(0,1))
 lines(loads_real, loads_envelope_v1, col = 'deepskyblue4', lwd = 2, lty= 5)
 lines(load_real_pred, load_envelope_pred_v2, col = 'green', lwd = 3)
 lines(loads_real, loads_envelope_v2, col = 'green', lwd = 2, lty= 5)
 lines(load_real_pred, load_envelope_pred_v3, col = 'red', lwd = 3)
 lines(loads_real, loads_envelope_v3, col = 'red', lwd = 2, lty= 5)
+lines(loads_real, loads_real, col = 'black', lwd = 2, lty= 4)
+
 grid()
-legend("bottomright",c("v1","v2", "v3"), 
-       col=c("deepskyblue4","green", "red"), lwd=3)
+legend("bottomright",c("40,576,1500","AMS-IX", "SFMIX", "Real"), 
+       col=c("deepskyblue4","green", "red", "black"), lwd=3)
+```
+
+
+# Part 5: Checking the polinomial prediction for V4
+```{r}
+#V4 San Francisco Metropolitan Internet Exchange (SFMIX) https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
+PS_size=c(64,
+          (65+127)/2,
+          (128+255)/2,
+          (256+511)/2,
+          (513+1023)/2,
+          (1024+1517)/2,
+          (1518+9999)/2)
+PS_weights = c(2, 23, 5, 5, 5, 40, 20)
+PS_weights=PS_weights/100
+
+loads_real = 0.6
+cat("Load real M/G/1:", loads_real, "\n")
+
+mg1_packets <- simmer_mg1(Capacity_Gbps, loads_real, PS_size, PS_weights, k_num = 1e4)
+
+
+load_envelope_predicted = predict(model_v3, newdata = data.frame(loads_real))
+
+
+n = 1
+df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets, x))*1e6 #real
+rho_env = seq(from=0.01,to=0.99,by=0.01)
+
+df_env <- qexp(percentiles_seq,rate = ((1-load_envelope_predicted)/E_X))*1e6 # mu s
+cat("All quantiles df_real are below envelope:", all(df_real < df_env), "\n")
+cat("Envelope upper bound \n")
+cat("Load envelope M/M/1:", load_envelope_predicted, "\n")
+cat("E(T) exponential envelope M/M/1:", E_X/(1-load_envelope_predicted), "s \n")
+cat("E(T) Real M/GI/1:", mean(mg1_packets), "s \n")
+    
+
+```
+
+# Part 6: Envelope load obtained from polynomial v1,v2,v3
+V1 c(40, 576, 1500)
+```{r}
+# Extract the coefficients of the fitted model
+coef_model_v1 <- coef(model_v1)
+# Construct the formula
+formula <- paste0("y(x) = ", coef_model_v1[1], " + ", coef_model_v1[2], "x", 
+                  " + ", coef_model_v1[3], "x^2")
+# Print the formula
+print(formula)
+```
+
+Calculating RMSE (Root Mean Square Error) and R-squared for V1:
+```{r}
+rmse_v1 <- sqrt(mean((loads_envelope_v1 - predict(model_v1))^2))
+r2_v1 <- summary(model_v1)$r.squared
+```
+
+V2 AMS-IX Amsterdam https://www.ams-ix.net/ams
+```{r}
+
+# Extract the coefficients of the fitted model
+coef_model_v2 <- coef(model_v2)
+# Construct the formula
+formula <- paste0("y(x) = ", coef_model_v2[1], " + ", coef_model_v2[2], "x", 
+                  " + ", coef_model_v2[3], "x^2")
+# Print the formula
+print(formula)
+
+```
+Calculating RMSE and R-squared for V2:
+```{r}
+rmse_v2 <- sqrt(mean((loads_envelope_v2 - predict(model_v2))^2))
+r2_v2 <- summary(model_v2)$r.squared
+```
+
+V3 San Francisco Metropolitan Internet Exchange (SFMIX)
+```{r}
+
+# Extract the coefficients of the fitted model
+coef_model_v3 <- coef(model_v3)
+# Construct the formula
+formula <- paste0("y(x) = ", coef_model_v3[1], " + ", coef_model_v3[2], "x", 
+                  " + ", coef_model_v3[3], "x^2")
+# Print the formula
+print(formula)
+
+```
+Calculating RMSE and R-squared for V3:
+```{r}
+rmse_v3 <- sqrt(mean((loads_envelope_v3 - predict(model_v3))^2))
+r2_v3 <- summary(model_v3)$r.squared
+```
+
+# Part 7: Calculate the average coefficients for the polynomial models using rounding.
+
+```{r}
+c = round((coef_model_v1[1] + coef_model_v2[1] + coef_model_v3[1])/3, 2)
+b = round((coef_model_v1[2] + coef_model_v2[2] + coef_model_v3[2])/3, 2)
+a = round((coef_model_v1[3] + coef_model_v2[3] + coef_model_v3[3])/3, 2)
+
+formula <- paste0("y(x) = ", c, " + ", b, "x", " + ", a, "x^2")
+
+print(formula)
+```
+# Part 8: Each model's performance.
+
+Compare the performance of the individual polynomial models  the average polynomial model with the average polynomial model by calculating the RMSE and R-squared metrics
+```{r}
+cat("Model v1: RMSE =", rmse_v1, ", R^2 =", r2_v1, "\n")
+cat("Model v2: RMSE =", rmse_v2, ", R^2 =", r2_v2, "\n")
+cat("Model v3: RMSE =", rmse_v3, ", R^2 =", r2_v3, "\n")
+# Calculate RMSE and R^2 for the average polynomial model
+load = seq(0.01,0.99,0.01)
+avg_pred <- a*load^2 + b*load + c#(predict(model_v1) + predict(model_v2) + predict(model_v3))/3
+
+rmse_avg_v1 <- sqrt(mean((loads_envelope_v1 - avg_pred)^2))
+r2_avg_v1 <- summary(lm(loads_envelope_v1 ~ avg_pred))$r.squared
+
+rmse_avg_v2 <- sqrt(mean((loads_envelope_v2 - avg_pred)^2))
+r2_avg_v2 <- summary(lm(loads_envelope_v2 ~ avg_pred))$r.squared
+
+rmse_avg_v3 <- sqrt(mean((loads_envelope_v3 - avg_pred)^2))
+r2_avg_v3 <- summary(lm(loads_envelope_v3 ~ avg_pred))$r.squared
+cat("Average Polynomial compare with Model Model v1: RMSE =", rmse_avg_v1, ", R^2 =", r2_avg_v1, "\n")
+cat("Average Polynomial compare with Model Model v2: RMSE =", rmse_avg_v2, ", R^2 =", r2_avg_v2, "\n")
+cat("Average Polynomial compare with Model Model v3: RMSE =", rmse_avg_v3, ", R^2 =", r2_avg_v3, "\n")
+
+```
+Mean Absolute Percent Error (MAPE), coefficient of variation (CV) , Mean absolute error (MAE)
+```{r}
+# Mean Absolute Percentage Error (MAPE)
+mape <- function(forecast, actual) {
+  return(mean(abs((actual - forecast) / actual)) * 100)
+}
+
+# Mean Absolute Error (MAE)
+mae <- function(forecast, actual) {
+  return(mean(abs(actual - forecast)))
+}
+```
+
+Mean Absolute Percent Error (MAPE), coefficient of variation , Mean absolute error
+```{r}
+# Calculate metrics for each model
+loads_real <- seq(0.01, 0.99, 0.01)
+
+mape_v1 <- mape(predict(model_v1), loads_envelope_v1)
+mae_v1 <- mae(predict(model_v1), loads_envelope_v1)
+
+mape_v2 <- mape(predict(model_v2), loads_envelope_v2)
+mae_v2 <- mae(predict(model_v2), loads_envelope_v2)
+
+mape_v3 <- mape(predict(model_v3), loads_envelope_v3)
+mae_v3 <- mae(predict(model_v3), loads_envelope_v3)
+
+# Calculate metrics for average polynomial model
+mape_avg_v1 <- mape(avg_pred, loads_envelope_v1)
+mae_avg_v1 <- mae(avg_pred, loads_envelope_v1)
+
+mape_avg_v2 <- mape(avg_pred, loads_envelope_v2)
+mae_avg_v2 <- mae(avg_pred, loads_envelope_v2)
+
+mape_avg_v3 <- mape(avg_pred, loads_envelope_v3)
+mae_avg_v3 <- mae(avg_pred, loads_envelope_v3)
+
+# Print metrics for each model and average polynomial model
+cat("Model v1: MAPE =", mape_v1, ", MAE =", mae_v1, "\n")
+cat("Model v2: MAPE =", mape_v2, ", MAE =", mae_v2, "\n")
+cat("Model v3: MAPE =", mape_v3, ", MAE =", mae_v3, "\n")
+cat("Average Polynomial Model: MAPE =", mape_avg_v1,", MAE =", mae_avg_v1, "\n")
+cat("Average Polynomial Model: MAPE =", mape_avg_v2,", MAE =", mae_avg_v2, "\n")
+cat("Average Polynomial Model: MAPE =", mape_avg_v3,", MAE =", mae_avg_v3, "\n")
+```
+```{r}
+# Plotting the observed data and the predicted values
+
+plot(loads_real, avg_pred, type = 'l', col = 'black', xlab = expression(rho[M/GI/1]), ylab = expression(rho[envelope]),# main = 'Quadratic Polynomial Regression',
+     lwd = 3, ylim = c(0,1))
+
+
+grid()
+legend("bottomright",c("Average"), 
+        col=c("black"), lwd=3)
 ```
 
