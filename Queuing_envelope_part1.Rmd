@@ -1,0 +1,336 @@
+---
+title: "Queuing_envelope_mg1"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+date: "2024-04-24"
+---
+# Approximating Queuing Delay from M/GI/1 to M/M/1 Envelope
+```{r setup, include=FALSE}
+library(simmer)
+library(ggplot2)
+set.seed(4321)
+```
+
+## FUNCTIONS
+
+```{r include=FALSE}
+envelope_cdf <- function(rate) {
+  exp_values <- rexp(1e4, rate = rate)
+  empirical_cdf <- ecdf(exp_values)
+  return(empirical_cdf)
+}
+#M/G/1 simmer delay simulation
+simmer_mg1 <- function(Capacity_Gbps, Load, PS_size, PS_weights, k_num){
+  
+  N = sum(PS_size*PS_weights)
+  N
+  nodes_capacity_Bps = Capacity_Gbps*1e9
+  
+  env <- simmer()
+  
+  env %>% add_resource("node_1", 1)
+  
+  trajectory_1_2 <- trajectory() %>%
+    seize("node_1") %>%
+    timeout(function() 8*sample(PS_size, size = 1, replace = T, prob = PS_weights)/nodes_capacity_Bps) %>%
+    release("node_1")
+  
+  Capacity_ps = Capacity_Gbps*1e9/(8*N)
+  traffic_val = Capacity_Gbps*1e9*Load/(8*N)
+  
+  # Define arrival process
+  env %>%
+    add_generator("trajectory_1_2", trajectory_1_2, function() rexp(1, traffic_val))
+  
+  
+  env %>% run(until = (k_num+1e3)/traffic_val)
+  
+  all_arrivals_res <- data.frame(env %>%
+                                   get_mon_arrivals(per_resource = FALSE) %>%
+                                   transform(waiting_time_in_queue = round(end_time - start_time - activity_time)) %>%
+                                   transform(spending_time = end_time - start_time))
+  
+  return(all_arrivals_res$spending_time[1:k_num])
+}
+```
+
+### Function for Calculating of M/M/1 envelope load for M/G/1
+```{r cars}
+envelope_load_calc <- function(Capacity_Gbps, k_num, Load, PS_size, PS_weights)
+{
+  mg1_packets <- simmer_mg1(Capacity_Gbps, Load, PS_size, PS_weights, k_num = 1e4)
+  cat("Load real M/G/1:", Load, "\n")
+  
+  # Step 1: Determine the average delay (E(T)) 
+  E_T_real <- mean(mg1_packets) 
+  N = sum(PS_size*PS_weights)
+  N
+  var_N <- sum(PS_size^2*PS_weights) - N^2
+  Cs2 <- var_N/(N^2)
+  nodes_capacity_Bps = Capacity_Gbps*1e9
+  Capacity_ps = nodes_capacity_Bps/(8*N)
+  E_X = 1/Capacity_ps
+  
+  percentiles_seq <- seq(0.5, 0.99, 0.01)
+  
+  n = 1
+  df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets, x))*1e6 #real
+  rho_env = seq(from=0.01,to=0.99,by=0.01)
+  for (rho in rho_env){
+    df_env <- qexp(percentiles_seq,rate = ((1-rho)/E_X))*1e6 # mu s
+    if (all(df_real < df_env)){
+      cat("Envelope upper bound \n")
+      cat("Load Envelope:", rho, "\n")
+      cat("E(T) exponential envelope M/M/1:", E_X/(1-rho), "s \n")
+      cat("E(T) Real M/GI/1:", E_T_real, "s \n")
+      cat("\n")
+      break
+    }
+    n = n + 1
+  }
+  return(rho)
+}
+
+```
+
+## INPUT DATA
+
+```{r pressure, echo=TRUE, message=TRUE, warning=FALSE}
+
+Capacity_Gbps = 10
+k_num = 1e6 #number of simulation packages
+Load <- 0.7  # Load
+# # #V1
+# PS_size <- c(40, 576, 1500)  # Packet sizes in bytes
+# PS_weights <- c(7, 4, 1) / 12  # Packet weights
+
+```
+
+```{r include=FALSE}
+
+#V2 https://www.ams-ix.net/ams
+# PS_size=c((64+127)/2,(128+255)/2,(256+511)/2, (512+1023)/2, (1024+1513)/2, 1514, (1515+9100)/2)
+# PS_weights=c(33.2/100, 5.4/100, 3.3/100, 3.7/100, 34.6/100, 14.6/100, 5.2/100)
+# 
+
+#V3 https://www.seattleix.net/statistics/
+# PS_size=c((64), (65+128)/2, (129+256)/2,(257+384)/2, (385+512)/2,(513+640)/2,(641+768)/2,(769+896)/2,
+#           (897+1024)/2,
+#           (1025+1152)/2,(1153+1280)/2,(1515+1408)/2,(1409+1536)/2, (1537+9999)/2)
+# PS_weights = c(4.2, 22.73, 4.79,1.93,0.92, 1.04, 0.74, 0.49, 0.45, 0.82, 6.56,9.30, 45.95, 0.07)
+# PS_weights=PS_weights/100
+
+#V4 https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
+PS_size=c(64,
+          (65+127)/2,
+          (128+255)/2,
+          (256+511)/2,
+          (513+1023)/2,
+          (1024+1517)/2,
+          (1518+9999)/2)
+PS_weights = c(2, 23, 5, 5, 5, 40, 20)
+PS_weights=PS_weights/100
+```
+# Part 1: simulation M/G/1 and envelope M/M/1 calculations
+
+## SIMULATION
+
+```{r}
+mg1_packets <- simmer_mg1(Capacity_Gbps, Load, PS_size, PS_weights, k_num)
+```
+
+## M/G/1 calculations of parameters
+
+```{r}
+real_cdf <- ecdf(mg1_packets)
+cat("Load real M/G/1:", Load, "\n")
+
+# Step 1: Determine the average delay (E(T)) 
+E_T_real <- mean(mg1_packets) 
+N = sum(PS_size*PS_weights)
+N
+var_N <- sum(PS_size^2*PS_weights) - N^2
+Cs2 <- var_N/(N^2)
+nodes_capacity_Bps = Capacity_Gbps*1e9
+Capacity_ps = nodes_capacity_Bps/(8*N)
+E_X = 1/Capacity_ps
+E_T_real_theor <- E_X*Load/(1-Load)*(1+Cs2)/2
+D_T_real_theor_90 <- (E_X*Load/(1-Load)*(1+Cs2)/2 + E_X)*log(1/(1-0.90))
+D_T_real_theor_99 <- (E_X*Load/(1-Load)*(1+Cs2)/2 + E_X)*log(1/(1-0.99))
+
+#sqrt(var_N)
+```
+
+## Envelope M/M/1 fitting process
+
+Envelope E(T) M/M/1 should be above real M/G/1 for percentiles from 50% - 99% 
+```{r}
+percentiles_seq <- seq(0.5, 0.99, 0.01)
+
+n = 1
+df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets, x))*1e6 #real
+rho_env = seq(from=0.01,to=0.99,by=0.01)
+for (rho in rho_env){
+  df_env <- qexp(percentiles_seq,rate = ((1-rho)/E_X))*1e6 # mu s
+  if (all(df_real < df_env)){
+    cat("Envelope upper bound \n")
+    cat("Load Envelope:", rho, "\n")
+    cat("E(T) exponential envelope M/M/1:", E_X/(1-rho), "s \n")
+    cat("E(T) Real M/GI/1:", E_T_real, "s \n")
+    break
+  }
+  n = n + 1
+}
+
+rho_env = rho
+envelope_rate = (1-rho)/E_X
+
+```
+
+## Plots
+
+PDF of real and envelope
+```{r}
+plot(density(mg1_packets*1e6), col = "blue", main = "", xlab = "Delay, μs", lwd = 2)
+lines(density(rexp(1e4, rate = envelope_rate)*1e6), col = "darkgreen", lwd = 2)
+legend("topright", legend = c("M/G/1 SFMIX", "M/M/1 envelope"), col = c("blue", "darkgreen"), lwd = 2)
+grid()
+```
+```{r}
+# # Assuming mg1_packets and envelope_rate are already defined
+# 
+# # Plot the histogram of mg1_packets with density option
+# hist(mg1_packets * 1e6, breaks = 50, probability = TRUE, col = "#9393ff", main = "", xlab = "Delay, μs", ylim = c(0, max(density(mg1_packets * 1e6, bw = 0.25)$y - 0.05)), border = "blue")
+# 
+# # Add the density line for mg1_packets
+# #lines(density(mg1_packets * 1e6), col = "blue", lwd = 2)
+# 
+# # Add the density line for the exponential distribution (envelope)
+# dens_env <- density(rexp(1e4, rate = envelope_rate) * 1e6, bw = 0.25)
+# dens_env$x[dens_env$x<0] <- 0
+# lines(dens_env, col = "darkgreen", lwd = 2)
+# 
+# # Add the legend
+# legend("topright", legend = c("M/G/1 SFMIX", "M/M/1 envelope"), col = c("#9393ff", "darkgreen"), lwd = c(20,2))
+# 
+# # Add the grid
+# grid()
+
+```
+
+
+```{r}
+lambda <- rho * 1/E_X
+# Theoretical M/M/1 delay density function
+mm1_delay_density <- function(d, lambda, mu) {
+  rho <- lambda / mu
+  lambda * (1 - rho) * exp(-lambda * (1 - rho) * d)
+}
+
+# Define the range of delay values for plotting
+delay_values <- seq(0, 50e-6, length.out = 1000)
+
+# Compute the theoretical density values
+density_values <- mm1_delay_density(delay_values, lambda, 1/E_X)
+
+
+```
+
+
+```{r}
+# Assuming mg1_packets, E_X, and rho are defined
+
+# Compute lambda based on rho and E_X
+lambda <- rho * 1/E_X
+
+# Theoretical M/M/1 delay density function
+mm1_delay_density <- function(d, lambda, mu) {
+  rho <- lambda / mu
+  lambda * (1 - rho) * exp(-lambda * (1 - rho) * d)
+}
+
+xlimit =  40e-6 #s
+# Define the range of delay values for plotting
+delay_values <- seq(0, xlimit, length.out = 1000)
+
+# Compute the theoretical density values
+density_values <- mm1_delay_density(delay_values, lambda, 1/E_X)
+
+# Plot the histogram of mg1_packets with density option
+hist(mg1_packets * 1e6, breaks = 50, probability = TRUE, col = "#9393ff", main = "", xlab = "Delay, μs", ylim = c(0, max(density(mg1_packets * 1e6, bw = 0.25)$y - 0.05)), xlim = c(0,xlimit*1e6), border = "blue")
+
+lines(delay_values * 1e6, density_values / 1e6, type = "l", col = "darkgreen", lwd = 2,
+      xlab = "Delay (μs)", ylab = "Density", main = "Theoretical M/M/1 Delay Distribution")
+
+# Add vertical lines for mean, 0.90 quantile, and 0.99 quantile of mg1_packets
+mean_delay <- mean(mg1_packets) * 1e6
+quantile_90 <- quantile(mg1_packets, p = 0.9) * 1e6
+quantile_99 <- quantile(mg1_packets, p = 0.99) * 1e6
+
+abline(v = mean_delay, col = "blue", lty = 2, lwd = 2)
+abline(v = quantile_90, col = "blue", lty = 2, lwd = 2)
+abline(v = quantile_99, col = "blue", lty = 2, lwd = 2)
+
+mean_delay = round(mean_delay, 2)
+quantile_90 = round(quantile_90, 2)
+quantile_99 = round(quantile_99, 2)
+
+
+# Add labels for the vertical lines with rotated text
+text(mean_delay, par("usr")[4] * 0.4, expression(paste("E(D"[real], ") = ", 5.34, " μs")), col = "blue", pos = 4, srt = 90)
+text(quantile_90, par("usr")[4] * 0.4, expression(paste("D"[0.90, real], " = ", 12.44 , " μs")), col = "blue", pos = 4, srt = 90)
+text(quantile_99, par("usr")[4] * 0.2, expression(paste("D"[0.99, real], " = ", 24.77 , " μs")), col = "blue", pos = 4, srt = 90)
+
+# Add the legend
+legend("topright", legend = c(expression("M/G/1"[SFMIX]), expression("M/M/1"[env])), col = c("#9393ff", "darkgreen"), lwd = c(20, 2))
+
+# Add the grid
+grid()
+
+```
+
+
+Plot the percentiles of real and envelope
+```{r}
+df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets*1e6, x))
+df_env <- sapply(percentiles_seq, function(x) quantile(rexp(1e5, rate = envelope_rate), x)*1e6)
+
+# Plot with no additional x-axis labels
+plot(df_real, col = "#8585ff", xlab = "Quantile, %", ylab = "Delay Quantile, μs", main = "", xaxt = "n", lwd = 2)
+lines(df_real, col = "#8585ff", lwd = 2)
+lines(df_env, col = "darkgreen", lwd = 2)
+
+# Add x-axis labels for percentiles_seq
+axis(1, at = seq_along(percentiles_seq), labels = paste0(percentiles_seq * 100, "%"))
+legend("topleft", legend = c("M/G/1 SFMIX", "M/M/1 envelope"), col = c("#8585ff", "darkgreen"), lwd = 2)
+grid()
+```
+
+Plot the log CCDF
+```{r}
+
+t_min = min(mg1_packets)
+t_max = 2*E_T_real
+# Compute the empirical CDF
+ecdf_values <- ecdf(mg1_packets)
+# Generate x values for the plot E(T)
+x_values <- seq(t_min, t_max, length.out = 1e4)
+# Compute the empirical CDF values
+ecdf_y_values_sim <- ecdf_values(x_values)
+
+
+envelope_ecdf_val <- envelope_cdf(envelope_rate)
+ecdf_y_values_env_upper_bound <- envelope_ecdf_val(x_values)
+
+
+lwd = 4
+plot(x_values, log10(1 - ecdf_y_values_sim), type = "l", xlab = "Delay, s", ylab = "log CCDF", main = "", col = "blue", lwd = lwd)
+lines(x_values, log10(1 - ecdf_y_values_env_upper_bound), col = "darkgreen", lty = 2, lwd  = lwd )
+legend("topright", legend = c(paste("real CCDF ρ = ", Load),
+                             paste("Envelope CCDF ρ =", round(rho_env, 2))),
+      col = c("blue", "darkgreen" ), lty = c(1, 2), lwd = 2)
+
+grid()
+```
