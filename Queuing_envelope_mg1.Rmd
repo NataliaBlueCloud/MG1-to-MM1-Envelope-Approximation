@@ -1,9 +1,9 @@
 ---
 title: "Queuing_envelope_mg1"
 output:
+  html_document: default
   pdf_document:
     latex_engine: xelatex
-  html_document: default
 date: "2024-04-24"
 ---
 # Approximating Queuing Delay from M/GI/1 to M/M/1 Envelope
@@ -356,80 +356,9 @@ load_envelope_pred_v3 <- predict(model_v3, newdata = data.frame(loads_real = loa
 
 ```
 
-```{r}
-plot(load_real_pred, load_envelope_pred_v1, type = 'l', col = 'blue', xlab = expression(rho[real]), ylab = expression(rho[env]),# main = 'Quadratic Polynomial Regression',
-     lwd = 3, ylim = c(0,1), cex.lab = 1.5)
-lines(loads_real, loads_envelope_v1, col = 'blue', lwd = 1, lty= 1)
-lines(load_real_pred, load_envelope_pred_v2, col = 'darkgreen', lwd = 2)
-lines(loads_real, loads_envelope_v2, col = 'darkgreen', lwd = 1, lty= 1)
-lines(load_real_pred, load_envelope_pred_v3, col = 'red', lwd = 2)
-lines(loads_real, loads_envelope_v3, col = 'red', lwd = 1, lty= 1)
-lines(loads_real, loads_real, col = 'black', lwd = 2, lty= 4)
-# Add labels for the vertical lines with rotated text
-legend_text_v1 <- bquote("Tri-modal: " ~ rho[env] ~ "=" ~ .(round(coef_model_v1[1], 2)) ~ "+" ~ .(round(coef_model_v1[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v1[3], 2)) * rho[real]^2)
-
-legend_text_v2 <- bquote("AMS-IX: " ~ rho[env] ~ "=" ~ .(round(coef_model_v2[1], 2)) ~ "+" ~ .(round(coef_model_v2[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v2[3], 2)) * rho[real]^2)
-
-legend_text_v3 <- bquote("SFMIX: " ~ rho[env] ~ "=" ~ .(round(coef_model_v3[1], 2)) ~ "+" ~ .(round(coef_model_v3[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v3[3], 2)) * rho[real]^2)
-
-text(0.25, 0, 
-     legend_text_v1,
-     col = "blue", pos = 4, srt = 0)
-text(0.25, 0.1,
-     legend_text_v2,
-     col = "darkgreen", pos = 4, srt = 0)
-text(0.25, 0.2,
-     legend_text_v3,
-     col = "red", pos = 4, srt = 0)
-text(0.3, 0.35,
-     expression(paste(rho[real], "=", rho[env])),
-     col = "black", pos = 4, srt = 25)
 
 
-
-grid()
-```
-
-
-# Part 5: Checking the polinomial prediction for V4
-
-
-```{r}
-#V4 San Francisco Metropolitan Internet Exchange (SFMIX) https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
-PS_size=c(64,
-          (65+127)/2,
-          (128+255)/2,
-          (256+511)/2,
-          (513+1023)/2,
-          (1024+1517)/2,
-          (1518+9999)/2)
-PS_weights = c(2, 23, 5, 5, 5, 40, 20)
-PS_weights=PS_weights/100
-
-loads_real = 0.6
-cat("Load real M/G/1:", loads_real, "\n")
-
-mg1_packets <- simmer_mg1(Capacity_Gbps, loads_real, PS_size, PS_weights, k_num = 1e4)
-
-
-load_envelope_predicted = predict(model_v3, newdata = data.frame(loads_real))
-
-
-n = 1
-df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets, x))*1e6 #real
-rho_env = seq(from=0.01,to=0.99,by=0.01)
-
-df_env <- qexp(percentiles_seq,rate = ((1-load_envelope_predicted)/E_X))*1e6 # mu s
-cat("All quantiles df_real are below envelope:", all(df_real < df_env), "\n")
-cat("Envelope upper bound \n")
-cat("Load envelope M/M/1:", load_envelope_predicted, "\n")
-cat("E(T) exponential envelope M/M/1:", E_X/(1-load_envelope_predicted), "s \n")
-cat("E(T) Real M/GI/1:", mean(mg1_packets), "s \n")
-    
-
-```
-
-# Part 6: Envelope load obtained from polynomial v1,v2,v3
+# Part 5: Envelope load obtained from polynomial v1,v2,v3
 V1 c(40, 576, 1500)
 ```{r}
 # Extract the coefficients of the fitted model
@@ -482,6 +411,80 @@ Calculating RMSE and R-squared for V3:
 rmse_v3 <- sqrt(mean((loads_envelope_v3 - predict(model_v3))^2))
 r2_v3 <- summary(model_v3)$r.squared
 ```
+
+```{r}
+loads_real <- seq(0.01, 0.99, 0.01)
+
+plot(load_real_pred, load_envelope_pred_v1, type = 'l', col = 'blue', xlab = expression(rho[real]), ylab = expression(rho[env]),# main = 'Quadratic Polynomial Regression',
+     lwd = 3, ylim = c(0,1), cex.lab = 1.5)
+lines(loads_real, loads_envelope_v1, col = 'blue', lwd = 1, lty= 1)
+lines(load_real_pred, load_envelope_pred_v2, col = 'darkgreen', lwd = 2)
+lines(loads_real, loads_envelope_v2, col = 'darkgreen', lwd = 1, lty= 1)
+lines(load_real_pred, load_envelope_pred_v3, col = 'red', lwd = 2)
+lines(loads_real, loads_envelope_v3, col = 'red', lwd = 1, lty= 1)
+lines(loads_real, loads_real, col = 'black', lwd = 2, lty= 4)
+# Add labels for the vertical lines with rotated text
+legend_text_v1 <- bquote("Tri-modal: " ~ rho[env] ~ "=" ~ .(round(coef_model_v1[1], 2)) ~ "+" ~ .(round(coef_model_v1[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v1[3], 2)) * rho[real]^2)
+
+legend_text_v2 <- bquote("AMS-IX: " ~ rho[env] ~ "=" ~ .(round(coef_model_v2[1], 2)) ~ "+" ~ .(round(coef_model_v2[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v2[3], 2)) * rho[real]^2)
+
+legend_text_v3 <- bquote("SFMIX: " ~ rho[env] ~ "=" ~ .(round(coef_model_v3[1], 2)) ~ "+" ~ .(round(coef_model_v3[2], 2)) * rho[real] ~ "+" ~ .(round(coef_model_v3[3], 2)) * rho[real]^2)
+
+text(0.25, 0, 
+     legend_text_v1,
+     col = "blue", pos = 4, srt = 0)
+text(0.25, 0.1,
+     legend_text_v2,
+     col = "darkgreen", pos = 4, srt = 0)
+text(0.25, 0.2,
+     legend_text_v3,
+     col = "red", pos = 4, srt = 0)
+text(0.3, 0.35,
+     expression(paste(rho[real], "=", rho[env])),
+     col = "black", pos = 4, srt = 25)
+
+
+
+grid()
+```
+# Part 6: Checking the polinomial prediction for V4
+
+
+```{r}
+#V4 San Francisco Metropolitan Internet Exchange (SFMIX) https://grafana.sfmix.org/public-dashboards/7dedd014679f4c798124748a24e9f5ef?orgId=1&from=now-2d&to=now
+PS_size=c(64,
+          (65+127)/2,
+          (128+255)/2,
+          (256+511)/2,
+          (513+1023)/2,
+          (1024+1517)/2,
+          (1518+9999)/2)
+PS_weights = c(2, 23, 5, 5, 5, 40, 20)
+PS_weights=PS_weights/100
+
+loads_real = 0.6
+cat("Load real M/G/1:", loads_real, "\n")
+
+mg1_packets <- simmer_mg1(Capacity_Gbps, loads_real, PS_size, PS_weights, k_num = 1e4)
+
+
+load_envelope_predicted = predict(model_v3, newdata = data.frame(loads_real))
+
+
+n = 1
+df_real <- sapply(percentiles_seq, function(x) quantile(mg1_packets, x))*1e6 #real
+rho_env = seq(from=0.01,to=0.99,by=0.01)
+
+df_env <- qexp(percentiles_seq,rate = ((1-load_envelope_predicted)/E_X))*1e6 # mu s
+cat("All quantiles df_real are below envelope:", all(df_real < df_env), "\n")
+cat("Envelope upper bound \n")
+cat("Load envelope M/M/1:", load_envelope_predicted, "\n")
+cat("E(T) exponential envelope M/M/1:", E_X/(1-load_envelope_predicted), "s \n")
+cat("E(T) Real M/GI/1:", mean(mg1_packets), "s \n")
+    
+
+```
+
 
 # Part 7: Calculate the average coefficients for the polynomial models using rounding.
 
