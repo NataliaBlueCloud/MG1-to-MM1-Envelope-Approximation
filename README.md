@@ -42,17 +42,21 @@ The envelope_load_calc function is used to determine the appropriate M/M/1 envel
 ## Input Data
 The experiment uses the following input parameters:
 
-Capacity_Gbps: 10 Gbps
-Load: 0.7
-PS_size: Packet sizes in bytes (40, 576, 1500)
-PS_weights: Packet weights (7/12, 4/12, 1/12)
+* Capacity_Gbps: 10 Gbps
+* Load: 0.7
+* PS_size: Packet sizes in bytes (40, 576, 1500)
+* PS_weights: Packet weights (7/12, 4/12, 1/12)
+
 
 ## Results
 M/G/1 Simulation and Envelope M/M/1 Calculations
-The M/G/1 system is simulated, and the packet delays (mg1_packets) are obtained.
-The average delay (E_T_real) and other parameters (N, var_N, Cs2, nodes_capacity_Bps, Capacity_ps, E_X) for the M/G/1 system are calculated.
-The envelope M/M/1 load (rho_env) is determined by finding the load where the M/M/1 quantiles upper-bound the M/G/1 quantiles for the desired range.
-The identified rho_env is 0.77, and the corresponding average delay (E_X/(1-rho_env)) serves as an upper bound for the M/G/1 system's average delay (E_T_real).
+The M/G/1 system is simulated, and the packet delays (_mg1_packets_) are obtained.
+
+The average delay (_E_T_real_) and other parameters (_N, var_N, Cs2, nodes_capacity_Bps, Capacity_ps, E_X_) for the M/G/1 system are calculated.
+
+The envelope M/M/1 load (_rho_env_) is determined by finding the load where the M/M/1 quantiles upper-bound the M/G/1 quantiles for the desired range.
+
+The identified rho_env is 0.78, and the corresponding average delay $\frac{E_X}{1-\rho_{env}}$ serves as an upper bound for the M/G/1 system's average delay (_E_T_real_).
 
 
 ## Polynomial Regression Model
@@ -62,23 +66,23 @@ A quadratic polynomial regression model is fitted to the observed data points (l
 
 The coefficients of the fitted model are extracted, and the quadratic polynomial formula is constructed and printed:
 ```r
-y(x) = 0.495076347314934 + 0.105061982739405 x + 0.414096953562388 x^2
+rho_env = 0.50 + 0.16 * rho_real + 0.34 * rho_real^2
 ```
 
 This formula represents the relationship between the real M/G/1 load (x) and the predicted envelope M/M/1 load (y).
 
 ## Checking the Polynomial Prediction
-The code then checks the polynomial prediction for a specific real M/G/1 load (loads_real = 0.57). The steps involved are:
+The code then checks the polynomial prediction for a specific real M/G/1 load (loads_real = 0.70). The steps involved are:
 
 Simulate the M/G/1 system using simmer_mg1 for the given load.
-Predict the envelope M/M/1 load (load_envelope_predicted) using the fitted polynomial regression model.
-Verify that all quantiles of the simulated M/G/1 delays (df_real) are below the quantiles of the corresponding M/M/1 exponential distribution (df_env) with the predicted envelope load.
+Predict the envelope M/M/1 load (_load_envelope_predicted_) using the fitted polynomial regression model.
+Verify that all quantiles of the simulated M/G/1 delays (_df_real_) are below the quantiles of the corresponding M/M/1 exponential distribution (_df_env_) with the predicted envelope load.
 
 ## Polynomial Prediction for Different Packet Size Distributions
-The final part of the code explores the polynomial prediction for different packet size distributions (PS_size and PS_weights). Three different distributions (V1, V2, and V3) are considered.
-V1 - bytes (40, 576, 1500) with Packet weights (7/12, 4/12, 1/12);
-v2 - https://www.ams-ix.net/ AMS-IX packet size statistics;
-v3 -https://www.seattleix.net/ statistics from Internet Exchange Point in Seattle.
+The final part of the code explores the polynomial prediction for different packet size distributions (_PS_size and PS_weights_). Three different distributions (V1, V2, and V3) are considered.
+V1 - trimodal bytes (40, 576, 1500) with Packet weights (7/12, 4/12, 1/12);
+v2 - https://www.ams-ix.net/ AMS-IX packet size statistics, which has an average packet size of 1019.03 Bytes, a standard deviation of 1161.66 Bytes;
+v3 - https://sfmix.org/ statistics from SFM-IX San Francisco Internet Exchange Point with parameters of 1750.41 Bytes for the average packet size, a standard deviation of 2062.69 Byte
 
 This analysis allows for evaluating the performance of the polynomial regression model in predicting the envelope M/M/1 load for different packet size distributions.
 The provided code demonstrates the process of fitting a polynomial regression model to the data, checking the model's predictions against simulated values, and exploring the model's performance for different input parameters (packet size distributions).
