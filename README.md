@@ -5,10 +5,11 @@ This repository contains an R Markdown document explores the approximation of qu
 ## Table of Contents
 
 - [Overview](#overview)
-- [Installation and Usage](#usage)
-- [Input Data](#inputdata)
+- [Installation and Usage](#installation-and-usage)
+- [Input Data](#input-data)
 - [Results](#results)
-- [Polynomial Regression Model](#PolynomialR)
+- [Polynomial Regression Model](#polynomial-regression-model)
+- [Polynomial Prediction for Different Packet Size Distributions](#polynomial-prediction-for-different-packet-size-distributions)
 
 ## Overview
 
@@ -19,7 +20,7 @@ The purpose of this project is to find an M/M/1 envelope that provides an upper 
 Additionally, the project explores the relationship between the real M/G/1 load and the envelope M/M/1 load using polynomial regression.
 
 ## Installation and Usage
-
+#usage
 To use this project, you'll need to have R installed on your system. You can download R from the official website: [https://www.r-project.org/](https://www.r-project.org/)
 
 The experiment utilizes the simmer package in R for discrete-event simulation of the M/G/1 system, you'll need to install the following R packages:
@@ -80,9 +81,9 @@ Verify that all quantiles of the simulated M/G/1 delays (_df_real_) are below th
 
 ## Polynomial Prediction for Different Packet Size Distributions
 The final part of the code explores the polynomial prediction for different packet size distributions (_PS_size and PS_weights_). Three different distributions (V1, V2, and V3) are considered.
-V1 - trimodal bytes (40, 576, 1500) with Packet weights (7/12, 4/12, 1/12);
-v2 - https://www.ams-ix.net/ AMS-IX packet size statistics, which has an average packet size of 1019.03 Bytes, a standard deviation of 1161.66 Bytes;
-v3 - https://sfmix.org/ statistics from SFM-IX San Francisco Internet Exchange Point with parameters of 1750.41 Bytes for the average packet size, a standard deviation of 2062.69 Byte
+* **V1** - trimodal bytes (40, 576, 1500) with Packet weights (7/12, 4/12, 1/12);
+* **v2** - https://www.ams-ix.net/ AMS-IX packet size statistics, which has an average packet size of 1019.03 Bytes, a standard deviation of 1161.66 Bytes;
+* **v3** - https://sfmix.org/ statistics from SFM-IX San Francisco Internet Exchange Point with parameters of 1750.41 Bytes for the average packet size, a standard deviation of 2062.69 Byte
 
 This analysis allows for evaluating the performance of the polynomial regression model in predicting the envelope M/M/1 load for different packet size distributions.
 The provided code demonstrates the process of fitting a polynomial regression model to the data, checking the model's predictions against simulated values, and exploring the model's performance for different input parameters (packet size distributions).
